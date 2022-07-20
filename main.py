@@ -2,6 +2,8 @@
 File: WaveFunctionCollapse - Sudoku
 Author: Christopher Kihano
 Date: July 12 2022
+Date Updated: July 20 2022
+
 Description:
              Solver for 2D square sudoku boards of size n^2 using branching and backtracking. Used as a practice for
              learning how to use wave function collapse. Wave function collapse takes all possible values that a cell
@@ -14,6 +16,12 @@ Description:
              other route. If all routes are exhausted along a branch, it will backtrack further to the previous branch
              in which the board still has a possibility of being solved given a different choice.
 
+Update:
+            Instead of iterating over all cells on the board, only iterate over cells in which changes have been made
+            such as reducing the number of possible values or when we make a guess and branch the solver.
+            From basic timing, this reduces the time taken to complete to 1/3 the original version. Both versions have
+            been kept but iterate2 has the optimized code.
+
 Further Improvements:
             Looking at other solvers after completing my own, I see what looks to be simpler implementations. However,
             these also seem to use a more brute force method in which all possible values are tried in a cell until a
@@ -23,6 +31,9 @@ Further Improvements:
 
 import copy
 import math
+import time
+
+from time import perf_counter, sleep
 
 
 class Board:
@@ -36,9 +47,16 @@ class Board:
         self.board = copy.deepcopy(board)
         self.width = len(board)
         self.height = len(board[0])
+        self.toDo = list()
+        self.unsolved = self.width * self.height
         for y in range(self.height):
             for x in range(self.width):
-                self.board[x][y] = copy.deepcopy(possible_values) if not board[x][y] else board[x][y]
+                if not board[y][x]:
+                    self.board[y][x] = copy.deepcopy(possible_values)
+                else:
+                    self.board[y][x] = board[y][x]
+                    self.toDo.append([y, x])
+                    self.unsolved -= 1
         self.sub_block = int(math.sqrt(self.width))
         self.return_line_string = " ".join(["{" + str(i) + ":3}" for i in range(self.width)]) + '\n'
 
@@ -86,6 +104,18 @@ class Board:
                         location = [y, x]
         return lowest_entropy, location, self.board[location[0]][location[1]]
 
+    def lowest_entropy(self) -> tuple[list[int], list[int]]:
+        entLow = 10
+        entLoc = None
+        for row in range(self.height):
+            for column in range(self.width):
+                cell = self.board[row][column]
+                if isinstance(cell, list):
+                    if len(cell) < entLow:
+                        entLow = len(cell)
+                        entLoc = [row, column]
+        return entLoc
+
 
 def iterate(board) -> Board or None:
     """
@@ -112,6 +142,47 @@ def iterate(board) -> Board or None:
     return None
 
 
+def iterate2(board) -> Board or None:
+    for y, x in board.toDo:
+        if isinstance(board.board[y][x], list):
+            entropy = len(board.board[y][x])
+            if entropy == 0:    # If there's 0 entropy, then we made a mistake and there's no solution.
+                return None
+            if entropy == 1:    # If there's 1 entropy, then the cell must be that value (with assumptions)
+                board.board[y][x] = board.board[y][x][0]
+                board.unsolved -= 1
+                if board.unsolved == 0:  # Tracking if we have solved the board yet
+                    return board
+        if isinstance(board.board[y][x], int):
+            value = board.board[y][x]
+            for p in range(board.width):
+                if isinstance(board.board[y][p], list) and value in board.board[y][p]:
+                    board.board[y][p].remove(value)
+                    board.toDo.append([y, p])
+                if isinstance(board.board[p][x], list) and value in board.board[p][x]:
+                    board.board[p][x].remove(value)
+                    board.toDo.append([p, x])
+            # Propagate square
+            top_left_x = (x // board.sub_block) * board.sub_block  # Top left x of sub-squares
+            top_left_y = (y // board.sub_block) * board.sub_block  # Same but y
+            for box_y in range(top_left_y, top_left_y + board.sub_block):  # Scan sub-square to find solved cells
+                for box_x in range(top_left_x, top_left_x + board.sub_block):
+                    if isinstance(board.board[box_y][box_x], list) and value in board.board[box_y][box_x]:
+                        board.board[box_y][box_x].remove(value)  # Remove from the list the value in board[y][x]
+                        board.toDo.append([box_y, box_x])
+    # Nothing to collapse but still unsolved
+    y, x = board.lowest_entropy()  # Find the cell with the lowest entropy
+    board.toDo = [[y, x]]  # Set the last updated cell and is used to continue propagation. Also removes old values
+    for attempt in board.board[y][x]:
+        newBoard = copy.deepcopy(board)
+        newBoard.board[y][x] = attempt
+        newBoard.unsolved -= 1  # Making this guess also reduces the number of unsolved cells.
+        newBoard = iterate2(newBoard)
+        if isinstance(newBoard, Board):  # Check to see if the board has been solved
+            return newBoard
+    return None
+
+
 if __name__ == '__main__':
     raw_board = [  # Deemed the world's hardest sudoku puzzle.
         [8, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -124,16 +195,18 @@ if __name__ == '__main__':
         [0, 0, 8, 5, 0, 0, 0, 1, 0],
         [0, 9, 0, 0, 0, 0, 4, 0, 0]
     ]
-    board_to_be_solved = Board(raw_board, [1, 2, 3, 4, 5, 6, 7, 8, 9])
-    print(iterate(board_to_be_solved))
-
+    # board_to_be_solved = Board(raw_board, [1, 2, 3, 4, 5, 6, 7, 8, 9])
+    # print(iterate(board_to_be_solved))
     # Test with a 4x4 board
     # raw_board = [[2, 0, 0, 0],
     #              [0, 3, 0, 0],
-    #              [0, 0, 2, 0],
-    #              [1, 0, 0, 3]]
-    # board_to_be_solved = Board(raw_board, 4, 4, [1, 2, 3, 3])
-
+    #              [1, 0, 4, 0],
+    #              [0, 0, 0, 1]]
+    # board_to_be_solved = Board(raw_board, [1, 2, 3, 4])
+    # start_time = perf_counter()
+    # print(iterate(board_to_be_solved))
+    # end_time = perf_counter()
+    #print(end_time - start_time)
     # Tests with  9x9 boards
     # raw_board = [
     #     [0, 0, 4, 0, 5, 0, 0, 0, 0],
@@ -157,6 +230,11 @@ if __name__ == '__main__':
     #     [0, 3, 8, 0, 0, 0, 5, 0, 0],
     #     [0, 0, 0, 0, 0, 7, 1, 0, 3]
     # ]
+    board_to_be_solved = Board(raw_board, [1, 2, 3, 4, 5, 6, 7, 8, 9])
+    start_time = perf_counter()
+    print(iterate2(board_to_be_solved))
+    end_time = perf_counter()
+    print(end_time - start_time)
     # raw_board = [
     #     [5, 0, 7, 2, 0, 0, 0, 9, 0],
     #     [0, 0, 6, 0, 3, 0, 7, 0, 1],
