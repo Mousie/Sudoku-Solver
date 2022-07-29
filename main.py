@@ -44,15 +44,15 @@ class Board:
         :param possible_values: List of possible values each cell can take on. This includes numbers, letters, objects.
 
         """
-        self.board = copy.deepcopy(board)
         self.width = len(board)
         self.height = len(board[0])
         self.toDo = list()
         self.unsolved = self.width * self.height
+        self.board = board
         for y in range(self.height):
             for x in range(self.width):
                 if not board[y][x]:
-                    self.board[y][x] = copy.deepcopy(possible_values)
+                    self.board[y][x] = possible_values.copy()
                 else:
                     self.board[y][x] = board[y][x]
                     self.toDo.append([y, x])
@@ -116,6 +116,11 @@ class Board:
                         entLoc = [row, column]
         return entLoc
 
+    def add_to_do(self, y, x, value):
+        self.board[y][x].remove(value)
+        if len(self.board[y][x]) == 1:
+            self.toDo.append([y, x])
+
 
 def iterate(board) -> Board or None:
     """
@@ -157,19 +162,16 @@ def iterate2(board) -> Board or None:
             value = board.board[y][x]
             for p in range(board.width):
                 if isinstance(board.board[y][p], list) and value in board.board[y][p]:
-                    board.board[y][p].remove(value)
-                    board.toDo.append([y, p])
+                    board.add_to_do(y, p, value)
                 if isinstance(board.board[p][x], list) and value in board.board[p][x]:
-                    board.board[p][x].remove(value)
-                    board.toDo.append([p, x])
+                    board.add_to_do(p, x, value)
             # Propagate square
             top_left_x = (x // board.sub_block) * board.sub_block  # Top left x of sub-squares
             top_left_y = (y // board.sub_block) * board.sub_block  # Same but y
             for box_y in range(top_left_y, top_left_y + board.sub_block):  # Scan sub-square to find solved cells
                 for box_x in range(top_left_x, top_left_x + board.sub_block):
                     if isinstance(board.board[box_y][box_x], list) and value in board.board[box_y][box_x]:
-                        board.board[box_y][box_x].remove(value)  # Remove from the list the value in board[y][x]
-                        board.toDo.append([box_y, box_x])
+                        board.add_to_do(box_y, box_x, value)
     # Nothing to collapse but still unsolved
     y, x = board.lowest_entropy()  # Find the cell with the lowest entropy
     board.toDo = [[y, x]]  # Set the last updated cell and is used to continue propagation. Also removes old values
@@ -195,6 +197,17 @@ if __name__ == '__main__':
         [0, 0, 8, 5, 0, 0, 0, 1, 0],
         [0, 9, 0, 0, 0, 0, 4, 0, 0]
     ]
+    # raw_board = [
+    #         [0,0,0,4,0,0,0,0,0],
+    #         [4,0,9,0,0,6,8,7,0],
+    #         [0,0,0,9,0,0,1,0,0],
+    #         [5,0,4,0,2,0,0,0,9],
+    #         [0,7,0,8,0,4,0,6,0],
+    #         [6,0,0,0,3,0,5,0,2],
+    #         [0,0,1,0,0,7,0,0,0],
+    #         [0,4,3,2,0,0,6,0,5],
+    #         [0,0,0,0,0,5,0,0,0]
+    #     ]
     # board_to_be_solved = Board(raw_board, [1, 2, 3, 4, 5, 6, 7, 8, 9])
     # print(iterate(board_to_be_solved))
     # Test with a 4x4 board
@@ -231,10 +244,10 @@ if __name__ == '__main__':
     #     [0, 0, 0, 0, 0, 7, 1, 0, 3]
     # ]
     board_to_be_solved = Board(raw_board, [1, 2, 3, 4, 5, 6, 7, 8, 9])
-    start_time = perf_counter()
+    start_time = time.process_time_ns()
     print(iterate2(board_to_be_solved))
-    end_time = perf_counter()
-    print(end_time - start_time)
+    end_time = time.process_time_ns()
+    print((end_time - start_time)/10e9)
     # raw_board = [
     #     [5, 0, 7, 2, 0, 0, 0, 9, 0],
     #     [0, 0, 6, 0, 3, 0, 7, 0, 1],
