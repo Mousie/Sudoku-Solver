@@ -36,8 +36,6 @@ from dataclasses import dataclass
 class Board:
     def __init__(self, board: list[list[int]], possible_values: list):
         """ Board class for passing around board instances and printing and solving boards.
-        :param width
-        :param height
         :param board: A 2D array of the board. 0 denotes unsolved, a list is possible values, others are given values.
         :param possible_values: List of possible values each cell can take on. This includes numbers, letters, objects.
         """
