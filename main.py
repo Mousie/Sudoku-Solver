@@ -79,11 +79,13 @@ class Board:
         """When there's only one value it can be, reduce entropy of surrounding cells"""
         cell = self.board[y][x]
         value = cell.value_used
+        # Remove values from columns and rows
         for i in range(self.width):
             if value in self.board[y][i].possibilities:
                 self.remove_possibility(y, i, value)
             if value in self.board[i][x].possibilities:
                 self.remove_possibility(i, x, value)
+        # Remove values from sub-squares
         for box_y in range(cell.top_left_y, cell.top_left_y + self.sub_block):  # Scan sub-square to find solved cells
             for box_x in range(cell.top_left_x, cell.top_left_x + self.sub_block):
                 if value in self.board[box_y][box_x].possibilities:
